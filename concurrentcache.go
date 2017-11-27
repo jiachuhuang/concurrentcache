@@ -20,7 +20,7 @@ type ConcurrentCacheSegment struct {
 }
 
 type ConcurrentCacheNode struct {
-	v interface{}
+	V interface{}
 	lifeExp time.Duration
 	createTime time.Time
 }
