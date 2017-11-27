@@ -23,8 +23,13 @@ func MurmurHash2(data string) uint32 {
 	switch l {
 	case 3:
 		h ^= uint32(data[2]) << 16
+		h ^= uint32(data[1]) << 8
+		h ^= uint32(data[0])
+		h *= 0x5bd1e995
 	case 2:
 		h ^= uint32(data[1]) << 8
+		h ^= uint32(data[0])
+		h *= 0x5bd1e995
 	case 1:
 		h ^= uint32(data[0])
 		h *= 0x5bd1e995
