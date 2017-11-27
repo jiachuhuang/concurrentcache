@@ -60,6 +60,13 @@ func TestQueue_RPush(t *testing.T) {
 }
 
 func TestMurmurHash2(t *testing.T) {
-	h := MurmurHash2("abcd")
-	t.Log(h)
+	t.Log(MurmurHash2("a"))
+	t.Log(MurmurHash2("ab"))
+	t.Log(MurmurHash2("abc"))
+	t.Log(MurmurHash2("abcd"))
+	t.Log(MurmurHash2("ab c"))
+	t.Log(MurmurHash2("abcde"))
+	t.Log(MurmurHash2("ABCDE"))
+	t.Log(MurmurHash2("adfhaksfeuiknjcshfiuenjfharnkj,cjrk"))
+	t.Log(MurmurHash2("adfhaksfeuiknjcshfiuenjfharnkj,cjrp"))
 }
