@@ -74,10 +74,8 @@ func (q *Queue) push(n *QNode, left bool) {
 }
 
 func (q *Queue) InsertAfter(prev, n *QNode) (bool, error) {
-	if prev == nil || !q.contains(prev) {
-		return false, errors.New("invalid prev node")
-	} else if n == nil || q.contains(n) {
-		return false, errors.New("n node has exists")
+	if prev == nil || n == nil {
+		return false, errors.New("invalid node")
 	}
 	n.prev = prev
 	n.next = prev.next
@@ -92,10 +90,8 @@ func (q *Queue) InsertAfter(prev, n *QNode) (bool, error) {
 }
 
 func (q *Queue) InsertBefore(next, n *QNode) (bool, error) {
-	if next == nil || !q.contains(next) {
-		return false, errors.New("invalid prev node")
-	} else if n == nil || q.contains(n) {
-		return false, errors.New("n node has exists")
+	if next == nil || n == nil {
+		return false, errors.New("invalid node")
 	}
 	n.next = next
 	n.prev = next.prev
@@ -143,7 +139,7 @@ func (q *Queue) pop(left bool) *QNode {
 }
 
 func (q *Queue) Delete(n *QNode) (bool, error) {
-	if !q.contains(n) {
+	if n == nil {
 		return false, errors.New("invalid node")
 	}
 	if n.prev != nil {
@@ -164,18 +160,6 @@ func (q *Queue) Delete(n *QNode) (bool, error) {
 func (q *Queue) Empty() bool {
 	if q.head == q.tail && q.head == nil {
 		return true
-	}
-	return false
-}
-
-func (q *Queue) contains(n *QNode) bool {
-	if q.head == nil {
-		return false
-	}
-	for p := q.head; p != nil; p = p.next {
-		if p == n {
-			return true
-		}
 	}
 	return false
 }
