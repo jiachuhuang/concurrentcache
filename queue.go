@@ -14,7 +14,7 @@ type Queue struct {
 type QNode struct {
 	prev *QNode
 	next *QNode
-	v interface{}
+	V interface{}
 }
 
 func NewQueue() *Queue {
@@ -29,7 +29,7 @@ func NewQueue() *Queue {
 func (q *Queue) NewQNode(v interface{}) *QNode {
 	n := q.pool.Get().(*QNode)
 	n.reset()
-	n.v = v
+	n.V = v
 	return n
 }
 
@@ -43,7 +43,7 @@ func (n *QNode) reset() {
 	if n != nil {
 		n.prev = nil
 		n.next = nil
-		n.v = nil
+		n.V = nil
 	}
 }
 
