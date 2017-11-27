@@ -7,7 +7,6 @@ import (
 )
 
 type ConcurrentCache struct {
-	sync.Mutex
 	segment []*ConcurrentCacheSegment
 	sCount uint32
 }
