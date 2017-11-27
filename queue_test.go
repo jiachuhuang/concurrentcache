@@ -58,3 +58,8 @@ func TestQueue_RPush(t *testing.T) {
 		t.Log(q.RPop().V.(string))
 	}
 }
+
+func TestMurmurHash2(t *testing.T) {
+	h := MurmurHash2("abcd")
+	t.Log(h)
+}
