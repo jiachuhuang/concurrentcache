@@ -4,6 +4,8 @@ import (
 	"testing"
 	"strconv"
 	"math/rand"
+
+	"time"
 )
 
 func TestNewConcurrentCache(t *testing.T) {
@@ -122,25 +124,25 @@ func TestConcurrentCache_Delete(t *testing.T) {
 }
 
 func BenchmarkConcurrentCache_Set(b *testing.B) {
-	cc, _ := NewConcurrentCache(128, 1024)
+	cc, _ := NewConcurrentCache(256, 10240)
 
 	b.RunParallel(func(pb *testing.PB) {
 		var s string
 		for pb.Next() {
 			i := rand.Int()
 			s = strconv.Itoa(i)
-			cc.Set(s, s, 0)
+			cc.Set(s, s, 5 * time.Second)
 		}
 	})
 }
 
 func BenchmarkConcurrentCache_Get(b *testing.B) {
-	cc, _ := NewConcurrentCache(128, 1024)
+	cc, _ := NewConcurrentCache(256, 10240)
 	var s string
 	for i := 0; i < 100000; i++ {
 		i := rand.Int()
 		s = strconv.Itoa(i)
-		cc.Set(s, s, 0)
+		cc.Set(s, s, 5 * time.Second)
 	}
 
 	b.RunParallel(func(pb *testing.PB) {

@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 )
 
+const pickNum = 3
+
 type ConcurrentCache struct {
 	segment []*ConcurrentCacheSegment
 	sCount uint32
@@ -21,6 +23,7 @@ type ConcurrentCacheSegment struct {
 	pool *sync.Pool
 	hits uint64
 	miss uint64
+	now time.Time
 }
 
 type ConcurrentCacheNode struct {
@@ -31,8 +34,8 @@ type ConcurrentCacheNode struct {
 }
 
 func NewConcurrentCache(sCount, dCount uint32) (*ConcurrentCache, error) {
-	if sCount < 32 || sCount > 128 {
-		return nil, errors.New("sCount[ConcurrentCacheSegment num] must be [32,128]")
+	if sCount < 32 || sCount > 256 {
+		return nil, errors.New("sCount[ConcurrentCacheSegment num] must be [32,256]")
 	}
 	if dCount < 1024 || dCount > 65536 {
 		return nil, errors.New("dCount[ConcurrentCacheSegment data num] must be [1024,65536]")
@@ -51,7 +54,7 @@ func newConcurrentCacheSegment(dCount uint32) *ConcurrentCacheSegment {
 			return &ConcurrentCacheNode{}
 		},
 	}
-	return &ConcurrentCacheSegment{lvPool:make(map[string]*ConcurrentCacheNode, 5), pool:pool, dCount:dCount, data: make(map[string]*ConcurrentCacheNode), dLen:0}
+	return &ConcurrentCacheSegment{lvPool:make(map[string]*ConcurrentCacheNode, pickNum), pool:pool, dCount:dCount, data: make(map[string]*ConcurrentCacheNode), dLen:0}
 }
 
 func (cc *ConcurrentCache) Set(key string, value interface{}, expire time.Duration) (bool, error) {
@@ -101,11 +104,12 @@ func (cc *ConcurrentCache) Expire(key string, expire time.Duration) (bool, error
 	cs.Lock()
 	defer cs.Unlock()
 
+	cs.now = time.Now()
 	cn, exists := cs.data[key]
 	if !exists {
 		return true, nil
 	} else {
-		if cn.expire() || cn.createTime.Add(expire).Before(time.Now()) {
+		if cn.expire(cs.now) || cn.createTime.Add(expire).Before(cs.now) {
 			return true, nil
 		} else {
 			cn.lifeExp = expire
@@ -135,9 +139,10 @@ func (cs *ConcurrentCacheSegment) set(key string, value interface{}, expire time
 	cs.Lock()
 	defer cs.Unlock()
 
+	cs.now = time.Now()
 	var cn *ConcurrentCacheNode
 	cn, exists := cs.data[key]
-	if nx && exists && !cn.expire() {
+	if nx && exists && !cn.expire(cs.now) {
 		return false, nil
 	}
 	if !exists {
@@ -160,7 +165,7 @@ func (cs *ConcurrentCacheSegment) pick() string {
 	again:
 	pl := len(cs.lvPool)
 	for k, v := range cs.data {
-		if pl >= 5 {
+		if pl >= pickNum {
 			break
 		}
 		_, exists := cs.lvPool[k]
@@ -178,7 +183,7 @@ func (cs *ConcurrentCacheSegment) pick() string {
 			continue
 		}
 		if pk_cn == nil {
-			if v.expire() {
+			if v.expire(cs.now) {
 				delete(cs.lvPool, k)
 				return k
 			}
@@ -186,7 +191,7 @@ func (cs *ConcurrentCacheSegment) pick() string {
 			pk = k
 			continue
 		}
-		if v.expire() {
+		if v.expire(cs.now) {
 			delete(cs.lvPool, k)
 			pk_cn = v
 			pk = k
@@ -210,11 +215,12 @@ func (cs *ConcurrentCacheSegment) get(key string) (interface{}, error) {
 	cs.RLock()
 	defer cs.RUnlock()
 
+	cs.now = time.Now()
 	cn, exists := cs.data[key]
 	if !exists {
 		return nil, nil
 	}
-	if cn.expire() {
+	if cn.expire(cs.now) {
 		return nil, nil
 	} else {
 		atomic.AddUint32(&cn.visit, 1)
@@ -259,9 +265,9 @@ func (cn *ConcurrentCacheNode) reset() {
 	}
 }
 
-func (cn *ConcurrentCacheNode) expire() bool {
+func (cn *ConcurrentCacheNode) expire(now time.Time) bool {
 	if cn.lifeExp == 0 {
 		return false
 	}
-	return cn.createTime.Add(cn.lifeExp).Before(time.Now())
+	return cn.createTime.Add(cn.lifeExp).Before(now)
 }
