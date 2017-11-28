@@ -122,7 +122,7 @@ func (cc *ConcurrentCache) Add(key string, value interface{}, expire time.Durati
 	h := MurmurHash2(key)
 	h = h % cc.sCount
 	cs := cc.segment[h]
-	ok, err := cs.set(key, value, expire, false)
+	ok, err := cs.set(key, value, expire, true)
 	if !ok && err == nil {
 		return false, nil
 	} else if err != nil {
@@ -152,6 +152,7 @@ func (cs *ConcurrentCacheSegment) set(key string, value interface{}, expire time
 	cn.reset()
 	cn.V = value
 	cn.lifeExp = expire
+	cs.data[key] = cn
 	return true, nil
 }
 
