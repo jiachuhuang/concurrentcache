@@ -1,6 +1,10 @@
 package concurrentcache
 
-import "testing"
+import (
+	"testing"
+	"strconv"
+	"math/rand"
+)
 
 func TestNewConcurrentCache(t *testing.T) {
 	_, err := NewConcurrentCache(128, 1024)
@@ -115,4 +119,36 @@ func TestConcurrentCache_Delete(t *testing.T) {
 			t.Log(v.(int))
 		}
 	}
+}
+
+func BenchmarkConcurrentCache_Set(b *testing.B) {
+	cc, _ := NewConcurrentCache(128, 1024)
+
+	b.RunParallel(func(pb *testing.PB) {
+		var s string
+		for pb.Next() {
+			i := rand.Int()
+			s = strconv.Itoa(i)
+			cc.Set(s, s, 0)
+		}
+	})
+}
+
+func BenchmarkConcurrentCache_Get(b *testing.B) {
+	cc, _ := NewConcurrentCache(128, 1024)
+	var s string
+	for i := 0; i < 100000; i++ {
+		i := rand.Int()
+		s = strconv.Itoa(i)
+		cc.Set(s, s, 0)
+	}
+
+	b.RunParallel(func(pb *testing.PB) {
+		var s string
+		for pb.Next() {
+			i := rand.Int()
+			s = strconv.Itoa(i)
+			cc.Get(s)
+		}
+	})
 }
