@@ -241,7 +241,7 @@ func (cs *ConcurrentCacheSegment) delete(key string) (bool, error) {
 		delete(cs.lvPool, key)
 	}
 	cs.dLen--
-	cs.pool.Put(cn)
+	cs.recycle(cn)
 	return true, nil
 }
 
