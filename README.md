@@ -24,7 +24,7 @@ if v != nil {
 ```
 
 # Benchmark
-concurrentcache和cache2go的压测对比，对比结果，concurrentcache无论是执行时间还是内存占比，都比cache2go优
+concurrentcache和cache2go进行了并发下的压测对比，对比结果，concurrentcache无论是执行时间还是内存占比，都比cache2go优
 ## concurrentcache
 ```golang
 BenchmarkConcurrentCache_Set-8           3000000               573 ns/op             190 B/op          2 allocs/op
