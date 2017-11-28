@@ -1,6 +1,16 @@
 # concurrentcache
 concurrentcache是一款golang的内存缓存库，多Segment设计，支持不同Segment间并发写入，提高读写性能。
 
+# Install
+```golang
+go get github.com/jiachuhuang/concurrentcache
+```
+Test：
+```golang
+cd $GOPATH/src/github.com/jiachuhuang/concurrentcache
+go test -v -test.bench=".*" -parallel 1000 -count 3 -benchmem
+```
+
 # Example
 ```golang
 package main
