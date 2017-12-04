@@ -1,35 +1,35 @@
 package concurrentcache
 
 import (
-	"sync"
-	"time"
 	"errors"
+	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const pickNum = 3
 
 type ConcurrentCache struct {
 	segment []*ConcurrentCacheSegment
-	sCount uint32
+	sCount  uint32
 }
 
 type ConcurrentCacheSegment struct {
 	sync.RWMutex
-	data map[string]*ConcurrentCacheNode
+	data   map[string]*ConcurrentCacheNode
 	lvPool map[string]*ConcurrentCacheNode
 	dCount uint32
-	dLen uint32
-	pool *sync.Pool
-	hits uint64
-	miss uint64
-	now time.Time
+	dLen   uint32
+	pool   *sync.Pool
+	hits   uint64
+	miss   uint64
+	now    time.Time
 }
 
 type ConcurrentCacheNode struct {
-	V interface{}
-	visit uint32
-	lifeExp time.Duration
+	V          interface{}
+	visit      uint32
+	lifeExp    time.Duration
 	createTime time.Time
 }
 
@@ -40,7 +40,7 @@ func NewConcurrentCache(sCount, dCount uint32) (*ConcurrentCache, error) {
 	if dCount < 1024 || dCount > 65536 {
 		return nil, errors.New("dCount[ConcurrentCacheSegment data num] must be [1024,65536]")
 	}
-	cc := &ConcurrentCache{segment:make([]*ConcurrentCacheSegment, sCount), sCount:sCount}
+	cc := &ConcurrentCache{segment: make([]*ConcurrentCacheSegment, sCount), sCount: sCount}
 	for k, _ := range cc.segment {
 		cs := newConcurrentCacheSegment(dCount)
 		cc.segment[k] = cs
@@ -54,7 +54,7 @@ func newConcurrentCacheSegment(dCount uint32) *ConcurrentCacheSegment {
 			return &ConcurrentCacheNode{}
 		},
 	}
-	return &ConcurrentCacheSegment{lvPool:make(map[string]*ConcurrentCacheNode, pickNum), pool:pool, dCount:dCount, data: make(map[string]*ConcurrentCacheNode), dLen:0}
+	return &ConcurrentCacheSegment{lvPool: make(map[string]*ConcurrentCacheNode, pickNum), pool: pool, dCount: dCount, data: make(map[string]*ConcurrentCacheNode), dLen: 0}
 }
 
 func (cc *ConcurrentCache) Set(key string, value interface{}, expire time.Duration) (bool, error) {
@@ -162,7 +162,7 @@ func (cs *ConcurrentCacheSegment) set(key string, value interface{}, expire time
 }
 
 func (cs *ConcurrentCacheSegment) pick() string {
-	again:
+again:
 	pl := len(cs.lvPool)
 	for k, v := range cs.data {
 		if pl >= pickNum {
@@ -175,35 +175,35 @@ func (cs *ConcurrentCacheSegment) pick() string {
 		}
 	}
 	var pk string
-	var pk_cn *ConcurrentCacheNode
+	var pkCn *ConcurrentCacheNode
 	for k, v := range cs.lvPool {
 		_, exists := cs.data[k]
 		if !exists {
 			delete(cs.lvPool, k)
 			continue
 		}
-		if pk_cn == nil {
+		if pkCn == nil {
 			if v.expire(cs.now) {
 				delete(cs.lvPool, k)
 				return k
 			}
-			pk_cn = v
+			pkCn = v
 			pk = k
 			continue
 		}
 		if v.expire(cs.now) {
 			delete(cs.lvPool, k)
-			pk_cn = v
+			pkCn = v
 			pk = k
 			return k
 		} else {
-			if v.visit < pk_cn.visit {
-				pk_cn = v
+			if v.visit < pkCn.visit {
+				pkCn = v
 				pk = k
 			}
 		}
 	}
-	if pk_cn == nil {
+	if pkCn == nil {
 		goto again
 	} else {
 		delete(cs.lvPool, pk)
