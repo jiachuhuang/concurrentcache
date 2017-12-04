@@ -1,5 +1,6 @@
 package concurrentcache
 
+// MurmurHash2 hash function
 func MurmurHash2(data string) uint32 {
 	var h, k uint32
 	l := uint32(len(data))
