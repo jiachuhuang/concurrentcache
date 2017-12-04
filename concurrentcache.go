@@ -18,14 +18,14 @@ type ConcurrentCache struct {
 // Segment ..
 type Segment struct {
 	sync.RWMutex
-	data   map[string]*Node
-	lvPool map[string]*Node
-	dCount uint32
-	dLen   uint32
-	pool   *sync.Pool
-	hits   uint64
-	miss   uint64
-	now    time.Time
+	data    map[string]*Node
+	lfuPool map[string]*Node
+	dCount  uint32
+	dLen    uint32
+	pool    *sync.Pool
+	hits    uint64
+	miss    uint64
+	now     time.Time
 }
 
 // Node is cache node
@@ -58,7 +58,7 @@ func newSegment(dCount uint32) *Segment {
 			return &Node{}
 		},
 	}
-	return &Segment{lvPool: make(map[string]*Node, pickNum), pool: pool, dCount: dCount, data: make(map[string]*Node), dLen: 0}
+	return &Segment{lfuPool: make(map[string]*Node, pickNum), pool: pool, dCount: dCount, data: make(map[string]*Node), dLen: 0}
 }
 
 // Set value to the cache
@@ -170,28 +170,28 @@ func (cs *Segment) set(key string, value interface{}, expire time.Duration, nx b
 
 func (cs *Segment) pick() string {
 again:
-	pl := len(cs.lvPool)
+	pl := len(cs.lfuPool)
 	for k, v := range cs.data {
 		if pl >= pickNum {
 			break
 		}
-		_, exists := cs.lvPool[k]
+		_, exists := cs.lfuPool[k]
 		if !exists {
-			cs.lvPool[k] = v
+			cs.lfuPool[k] = v
 			pl++
 		}
 	}
 	var pk string
 	var pkCn *Node
-	for k, v := range cs.lvPool {
+	for k, v := range cs.lfuPool {
 		_, exists := cs.data[k]
 		if !exists {
-			delete(cs.lvPool, k)
+			delete(cs.lfuPool, k)
 			continue
 		}
 		if pkCn == nil {
 			if v.expire(cs.now) {
-				delete(cs.lvPool, k)
+				delete(cs.lfuPool, k)
 				return k
 			}
 			pkCn = v
@@ -199,7 +199,7 @@ again:
 			continue
 		}
 		if v.expire(cs.now) {
-			delete(cs.lvPool, k)
+			delete(cs.lfuPool, k)
 			pkCn = v
 			pk = k
 			return k
@@ -213,7 +213,7 @@ again:
 	if pkCn == nil {
 		goto again
 	} else {
-		delete(cs.lvPool, pk)
+		delete(cs.lfuPool, pk)
 	}
 	return pk
 }
@@ -244,8 +244,8 @@ func (cs *Segment) delete(key string) (bool, error) {
 		return true, nil
 	}
 	delete(cs.data, key)
-	if _, ok := cs.lvPool[key]; ok {
-		delete(cs.lvPool, key)
+	if _, ok := cs.lfuPool[key]; ok {
+		delete(cs.lfuPool, key)
 	}
 	cs.dLen--
 	cs.recycle(cn)
