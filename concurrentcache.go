@@ -9,11 +9,13 @@ import (
 
 const pickNum = 3
 
+// ConcurrentCache ...
 type ConcurrentCache struct {
 	segment []*ConcurrentCacheSegment
 	sCount  uint32
 }
 
+// ConcurrentCacheSegment ..
 type ConcurrentCacheSegment struct {
 	sync.RWMutex
 	data   map[string]*ConcurrentCacheNode
@@ -26,6 +28,7 @@ type ConcurrentCacheSegment struct {
 	now    time.Time
 }
 
+// ConcurrentCacheNode is cache node
 type ConcurrentCacheNode struct {
 	V          interface{}
 	visit      uint32
@@ -33,6 +36,7 @@ type ConcurrentCacheNode struct {
 	createTime time.Time
 }
 
+// NewConcurrentCache init ConcurrentCache
 func NewConcurrentCache(sCount, dCount uint32) (*ConcurrentCache, error) {
 	if sCount < 32 || sCount > 256 {
 		return nil, errors.New("sCount[ConcurrentCacheSegment num] must be [32,256]")
@@ -41,7 +45,7 @@ func NewConcurrentCache(sCount, dCount uint32) (*ConcurrentCache, error) {
 		return nil, errors.New("dCount[ConcurrentCacheSegment data num] must be [1024,65536]")
 	}
 	cc := &ConcurrentCache{segment: make([]*ConcurrentCacheSegment, sCount), sCount: sCount}
-	for k, _ := range cc.segment {
+	for k := range cc.segment {
 		cs := newConcurrentCacheSegment(dCount)
 		cc.segment[k] = cs
 	}
@@ -57,6 +61,7 @@ func newConcurrentCacheSegment(dCount uint32) *ConcurrentCacheSegment {
 	return &ConcurrentCacheSegment{lvPool: make(map[string]*ConcurrentCacheNode, pickNum), pool: pool, dCount: dCount, data: make(map[string]*ConcurrentCacheNode), dLen: 0}
 }
 
+// Set value to the cache
 func (cc *ConcurrentCache) Set(key string, value interface{}, expire time.Duration) (bool, error) {
 	if key == "" || value == nil {
 		return false, errors.New("key or value can not be empty")
@@ -71,6 +76,7 @@ func (cc *ConcurrentCache) Set(key string, value interface{}, expire time.Durati
 	return true, nil
 }
 
+// Get value from cache
 func (cc *ConcurrentCache) Get(key string) (interface{}, error) {
 	if key == "" {
 		return false, errors.New("key can not be empty")
@@ -82,6 +88,7 @@ func (cc *ConcurrentCache) Get(key string) (interface{}, error) {
 	return value, err
 }
 
+// Delete value from cache
 func (cc *ConcurrentCache) Delete(key string) (bool, error) {
 	if key == "" {
 		return false, errors.New("key can not be empty")
@@ -93,6 +100,7 @@ func (cc *ConcurrentCache) Delete(key string) (bool, error) {
 	return true, err
 }
 
+// Expire set the value with a expire time
 func (cc *ConcurrentCache) Expire(key string, expire time.Duration) (bool, error) {
 	if key == "" {
 		return false, errors.New("key can not be empty")
@@ -108,17 +116,16 @@ func (cc *ConcurrentCache) Expire(key string, expire time.Duration) (bool, error
 	cn, exists := cs.data[key]
 	if !exists {
 		return true, nil
-	} else {
-		if cn.expire(cs.now) || cn.createTime.Add(expire).Before(cs.now) {
-			return true, nil
-		} else {
-			cn.lifeExp = expire
-			atomic.AddUint32(&cn.visit, 1)
-		}
 	}
+	if cn.expire(cs.now) || cn.createTime.Add(expire).Before(cs.now) {
+		return true, nil
+	}
+	cn.lifeExp = expire
+	atomic.AddUint32(&cn.visit, 1)
 	return true, nil
 }
 
+// Add k-v to the cache , if the key not exists
 func (cc *ConcurrentCache) Add(key string, value interface{}, expire time.Duration) (bool, error) {
 	if key == "" || value == nil {
 		return false, errors.New("key or value can not be empty")
@@ -196,11 +203,11 @@ again:
 			pkCn = v
 			pk = k
 			return k
-		} else {
-			if v.visit < pkCn.visit {
-				pkCn = v
-				pk = k
-			}
+		}
+
+		if v.visit < pkCn.visit {
+			pkCn = v
+			pk = k
 		}
 	}
 	if pkCn == nil {
@@ -222,10 +229,10 @@ func (cs *ConcurrentCacheSegment) get(key string) (interface{}, error) {
 	}
 	if cn.expire(cs.now) {
 		return nil, nil
-	} else {
-		atomic.AddUint32(&cn.visit, 1)
-		return cn.V, nil
 	}
+
+	atomic.AddUint32(&cn.visit, 1)
+	return cn.V, nil
 }
 
 func (cs *ConcurrentCacheSegment) delete(key string) (bool, error) {
