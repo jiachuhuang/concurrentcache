@@ -11,15 +11,15 @@ const pickNum = 3
 
 // ConcurrentCache ...
 type ConcurrentCache struct {
-	segment []*ConcurrentCacheSegment
+	segment []*Segment
 	sCount  uint32
 }
 
-// ConcurrentCacheSegment ..
-type ConcurrentCacheSegment struct {
+// Segment ..
+type Segment struct {
 	sync.RWMutex
-	data   map[string]*ConcurrentCacheNode
-	lvPool map[string]*ConcurrentCacheNode
+	data   map[string]*Node
+	lvPool map[string]*Node
 	dCount uint32
 	dLen   uint32
 	pool   *sync.Pool
@@ -28,8 +28,8 @@ type ConcurrentCacheSegment struct {
 	now    time.Time
 }
 
-// ConcurrentCacheNode is cache node
-type ConcurrentCacheNode struct {
+// Node is cache node
+type Node struct {
 	V          interface{}
 	visit      uint32
 	lifeExp    time.Duration
@@ -39,26 +39,26 @@ type ConcurrentCacheNode struct {
 // NewConcurrentCache init ConcurrentCache
 func NewConcurrentCache(sCount, dCount uint32) (*ConcurrentCache, error) {
 	if sCount < 32 || sCount > 256 {
-		return nil, errors.New("sCount[ConcurrentCacheSegment num] must be [32,256]")
+		return nil, errors.New("sCount[Segment num] must be [32,256]")
 	}
 	if dCount < 1024 || dCount > 65536 {
-		return nil, errors.New("dCount[ConcurrentCacheSegment data num] must be [1024,65536]")
+		return nil, errors.New("dCount[Segment data num] must be [1024,65536]")
 	}
-	cc := &ConcurrentCache{segment: make([]*ConcurrentCacheSegment, sCount), sCount: sCount}
+	cc := &ConcurrentCache{segment: make([]*Segment, sCount), sCount: sCount}
 	for k := range cc.segment {
-		cs := newConcurrentCacheSegment(dCount)
+		cs := newSegment(dCount)
 		cc.segment[k] = cs
 	}
 	return cc, nil
 }
 
-func newConcurrentCacheSegment(dCount uint32) *ConcurrentCacheSegment {
+func newSegment(dCount uint32) *Segment {
 	pool := &sync.Pool{
 		New: func() interface{} {
-			return &ConcurrentCacheNode{}
+			return &Node{}
 		},
 	}
-	return &ConcurrentCacheSegment{lvPool: make(map[string]*ConcurrentCacheNode, pickNum), pool: pool, dCount: dCount, data: make(map[string]*ConcurrentCacheNode), dLen: 0}
+	return &Segment{lvPool: make(map[string]*Node, pickNum), pool: pool, dCount: dCount, data: make(map[string]*Node), dLen: 0}
 }
 
 // Set value to the cache
@@ -142,12 +142,12 @@ func (cc *ConcurrentCache) Add(key string, value interface{}, expire time.Durati
 	return true, nil
 }
 
-func (cs *ConcurrentCacheSegment) set(key string, value interface{}, expire time.Duration, nx bool) (bool, error) {
+func (cs *Segment) set(key string, value interface{}, expire time.Duration, nx bool) (bool, error) {
 	cs.Lock()
 	defer cs.Unlock()
 
 	cs.now = time.Now()
-	var cn *ConcurrentCacheNode
+	var cn *Node
 	cn, exists := cs.data[key]
 	if nx && exists && !cn.expire(cs.now) {
 		return false, nil
@@ -157,7 +157,7 @@ func (cs *ConcurrentCacheSegment) set(key string, value interface{}, expire time
 			pk := cs.pick()
 			cn = cs.data[pk]
 		} else {
-			cn = cs.newConcurrentCacheNode()
+			cn = cs.newNode()
 			cs.dLen++
 		}
 	}
@@ -168,7 +168,7 @@ func (cs *ConcurrentCacheSegment) set(key string, value interface{}, expire time
 	return true, nil
 }
 
-func (cs *ConcurrentCacheSegment) pick() string {
+func (cs *Segment) pick() string {
 again:
 	pl := len(cs.lvPool)
 	for k, v := range cs.data {
@@ -182,7 +182,7 @@ again:
 		}
 	}
 	var pk string
-	var pkCn *ConcurrentCacheNode
+	var pkCn *Node
 	for k, v := range cs.lvPool {
 		_, exists := cs.data[k]
 		if !exists {
@@ -218,7 +218,7 @@ again:
 	return pk
 }
 
-func (cs *ConcurrentCacheSegment) get(key string) (interface{}, error) {
+func (cs *Segment) get(key string) (interface{}, error) {
 	cs.RLock()
 	defer cs.RUnlock()
 
@@ -235,7 +235,7 @@ func (cs *ConcurrentCacheSegment) get(key string) (interface{}, error) {
 	return cn.V, nil
 }
 
-func (cs *ConcurrentCacheSegment) delete(key string) (bool, error) {
+func (cs *Segment) delete(key string) (bool, error) {
 	cs.Lock()
 	defer cs.Unlock()
 
@@ -252,18 +252,18 @@ func (cs *ConcurrentCacheSegment) delete(key string) (bool, error) {
 	return true, nil
 }
 
-func (cs *ConcurrentCacheSegment) newConcurrentCacheNode() *ConcurrentCacheNode {
-	cn := cs.pool.Get().(*ConcurrentCacheNode)
+func (cs *Segment) newNode() *Node {
+	cn := cs.pool.Get().(*Node)
 	return cn
 }
 
-func (cs *ConcurrentCacheSegment) recycle(cn *ConcurrentCacheNode) {
+func (cs *Segment) recycle(cn *Node) {
 	if cn != nil {
 		cs.pool.Put(cn)
 	}
 }
 
-func (cn *ConcurrentCacheNode) reset() {
+func (cn *Node) reset() {
 	if cn != nil {
 		cn.V = nil
 		cn.createTime = time.Now()
@@ -272,7 +272,7 @@ func (cn *ConcurrentCacheNode) reset() {
 	}
 }
 
-func (cn *ConcurrentCacheNode) expire(now time.Time) bool {
+func (cn *Node) expire(now time.Time) bool {
 	if cn.lifeExp == 0 {
 		return false
 	}
