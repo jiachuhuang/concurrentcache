@@ -37,6 +37,8 @@ type Node struct {
 }
 
 // NewConcurrentCache init ConcurrentCache
+// sCount is segment num
+// dCount is data num of one segment
 func NewConcurrentCache(sCount, dCount uint32) (*ConcurrentCache, error) {
 	if sCount < 32 || sCount > 256 {
 		return nil, errors.New("sCount[Segment num] must be [32,256]")
