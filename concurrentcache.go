@@ -220,18 +220,23 @@ again:
 
 func (cs *Segment) get(key string) (interface{}, error) {
 	cs.RLock()
-	defer cs.RUnlock()
 
 	cs.now = time.Now()
 	cn, exists := cs.data[key]
 	if !exists {
+		cs.RUnlock()
+		atomic.AddUint64(&cs.miss, 1)
 		return nil, nil
 	}
 	if cn.expire(cs.now) {
+		cs.RUnlock()
+		atomic.AddUint64(&cs.miss, 1)
 		return nil, nil
 	}
+	cs.RUnlock()
 
 	atomic.AddUint32(&cn.visit, 1)
+	atomic.AddUint64(&cs.hits, 1)
 	return cn.V, nil
 }
 
